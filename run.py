@@ -21,7 +21,18 @@ from camel.typing import ModelType
 root = os.path.dirname(__file__)
 sys.path.append(root)
 
+# Initialize configuration management early
+from chatdev.config import get_config as get_env_config
 from chatdev.chat_chain import ChatChain
+
+# Load configuration from .env file
+env_config = get_env_config()
+print("Configuration loaded successfully!")
+print(f"Using model: {env_config.default_model}")
+if env_config.base_url:
+    print(f"Using custom API endpoint: {env_config.base_url}")
+else:
+    print("Using default OpenAI API endpoint")
 
 try:
     from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall
@@ -78,7 +89,7 @@ parser.add_argument('--task', type=str, default="Develop a basic Gomoku game.",
                     help="Prompt of software")
 parser.add_argument('--name', type=str, default="Gomoku",
                     help="Name of software, your software will be generated in WareHouse/name_org_timestamp")
-parser.add_argument('--model', type=str, default="GPT_3_5_TURBO",
+parser.add_argument('--model', type=str, default=env_config.default_model,
                     help="GPT Model, choose from {'GPT_3_5_TURBO', 'GPT_4', 'GPT_4_TURBO', 'GPT_4O', 'GPT_4O_MINI'}")
 parser.add_argument('--path', type=str, default="",
                     help="Your file directory, ChatDev will build upon your software in the Incremental mode")
@@ -101,13 +112,34 @@ args2type = {'GPT_3_5_TURBO': ModelType.GPT_3_5_TURBO,
 if openai_new_api:
     args2type['GPT_3_5_TURBO'] = ModelType.GPT_3_5_TURBO_NEW
 
+# Handle custom model names for custom API endpoints
+if env_config.is_custom_api and args.model not in args2type:
+    print(f"Using custom model: {args.model} with custom API endpoint")
+    # Create a custom ModelType for the custom model
+    from enum import Enum
+    class CustomModelType(Enum):
+        CUSTOM = args.model
+        
+        @property
+        def value_for_tiktoken(self):
+            return "gpt-3.5-turbo-16k-0613"  # Fallback for tiktoken
+    
+    model_type = CustomModelType.CUSTOM
+else:
+    if args.model not in args2type:
+        print(f"Warning: Model '{args.model}' not supported. Using GPT_3_5_TURBO instead.")
+        print(f"Supported models: {list(args2type.keys())}")
+        model_type = args2type['GPT_3_5_TURBO']
+    else:
+        model_type = args2type[args.model]
+
 chat_chain = ChatChain(config_path=config_path,
                        config_phase_path=config_phase_path,
                        config_role_path=config_role_path,
                        task_prompt=args.task,
                        project_name=args.name,
                        org_name=args.org,
-                       model_type=args2type[args.model],
+                       model_type=model_type,
                        code_path=args.path)
 
 # ----------------------------------------

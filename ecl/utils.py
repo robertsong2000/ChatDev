@@ -16,11 +16,18 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential
 )
-OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
-if 'BASE_URL' in os.environ:
-    BASE_URL = os.environ['BASE_URL']
-else:
-    BASE_URL = None
+
+# Import configuration management
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from chatdev.config import get_config
+
+# Initialize configuration
+config = get_config()
+
+# Get API credentials from configuration
+OPENAI_API_KEY = config.openai_api_key
+BASE_URL = config.base_url
 
 def getFilesFromType(sourceDir, filetype):
     files = []

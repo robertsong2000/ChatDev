@@ -20,6 +20,7 @@ import tiktoken
 from camel.typing import ModelType
 from chatdev.statistics import prompt_cost
 from chatdev.utils import log_visualize
+from chatdev.config import get_config
 
 try:
     from openai.types.chat import ChatCompletion
@@ -30,11 +31,12 @@ except ImportError:
 
 import os
 
-OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
-if 'BASE_URL' in os.environ:
-    BASE_URL = os.environ['BASE_URL']
-else:
-    BASE_URL = None
+# Initialize configuration
+config = get_config()
+
+# Get API credentials from configuration
+OPENAI_API_KEY = config.openai_api_key
+BASE_URL = config.base_url
 
 
 class ModelBackend(ABC):
@@ -65,7 +67,14 @@ class OpenAIModel(ModelBackend):
 
     def run(self, *args, **kwargs):
         string = "\n".join([message["content"] for message in kwargs["messages"]])
-        encoding = tiktoken.encoding_for_model(self.model_type.value)
+        
+        # Handle custom models for token encoding
+        try:
+            encoding = tiktoken.encoding_for_model(self.model_type.value)
+        except KeyError:
+            # For custom models, use a default encoding
+            encoding = tiktoken.get_encoding("cl100k_base")  # GPT-4 encoding
+            
         num_prompt_tokens = len(encoding.encode(string))
         gap_between_send_receive = 15 * len(kwargs["messages"])
         num_prompt_tokens += gap_between_send_receive
@@ -94,7 +103,9 @@ class OpenAIModel(ModelBackend):
                 "gpt-4o": 4096, #100000
                 "gpt-4o-mini": 16384, #100000
             }
-            num_max_token = num_max_token_map[self.model_type.value]
+            
+            # For custom models, use a default max token limit
+            num_max_token = num_max_token_map.get(self.model_type.value, 32768)
             num_max_completion_tokens = num_max_token - num_prompt_tokens
             self.model_config_dict['max_tokens'] = num_max_completion_tokens
 
@@ -127,7 +138,9 @@ class OpenAIModel(ModelBackend):
                 "gpt-4o": 4096, #100000
                 "gpt-4o-mini": 16384, #100000
             }
-            num_max_token = num_max_token_map[self.model_type.value]
+            
+            # For custom models, use a default max token limit
+            num_max_token = num_max_token_map.get(self.model_type.value, 32768)
             num_max_completion_tokens = num_max_token - num_prompt_tokens
             self.model_config_dict['max_tokens'] = num_max_completion_tokens
 
@@ -194,7 +207,15 @@ class ModelFactory:
         elif model_type == ModelType.STUB:
             model_class = StubModel
         else:
-            raise ValueError("Unknown model")
+            # Check if it's a custom model type
+            if hasattr(model_type, '__class__') and hasattr(model_type.__class__, '__name__'):
+                if 'Custom' in model_type.__class__.__name__:
+                    # For custom models, use OpenAIModel as the backend
+                    model_class = OpenAIModel
+                else:
+                    raise ValueError("Unknown model")
+            else:
+                raise ValueError("Unknown model")
 
         if model_type is None:
             model_type = default_model_type

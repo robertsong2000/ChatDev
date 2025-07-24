@@ -5,14 +5,23 @@ from openai import OpenAI
 import wikipediaapi
 import os
 import time
+import sys
 
-self_api_key = os.environ.get('OPENAI_API_KEY')
-BASE_URL = os.environ.get('BASE_URL')
+# Import configuration management
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from chatdev.config import get_config
+
+# Initialize configuration
+config = get_config()
+
+# Get API credentials from configuration
+self_api_key = config.openai_api_key
+BASE_URL = config.base_url
 
 if BASE_URL:
     client = openai.OpenAI(
         api_key=self_api_key,
-        base_url=BASE_URL,
+        base_url=BASE_URL
     )
 else:
     client = openai.OpenAI(

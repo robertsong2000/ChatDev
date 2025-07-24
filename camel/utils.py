@@ -95,6 +95,11 @@ def num_tokens_from_messages(
     }:
         return count_tokens_openai_chat_models(messages, encoding)
     else:
+        # For custom models, use the same token counting method as standard models
+        if hasattr(model, '__class__') and hasattr(model.__class__, '__name__'):
+            if 'Custom' in model.__class__.__name__:
+                return count_tokens_openai_chat_models(messages, encoding)
+        
         raise NotImplementedError(
             f"`num_tokens_from_messages`` is not presently implemented "
             f"for model {model}. "
@@ -131,6 +136,11 @@ def get_model_token_limit(model: ModelType) -> int:
     elif model == ModelType.GPT_4O_MINI:
         return 128000
     else:
+        # For custom models, check if it's a custom model type
+        if hasattr(model, '__class__') and hasattr(model.__class__, '__name__'):
+            if 'Custom' in model.__class__.__name__:
+                # Return a reasonable default for custom models
+                return 32768
         raise ValueError("Unknown model type")
 
 

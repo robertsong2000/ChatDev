@@ -1,11 +1,6 @@
 import os
 import openai
 from openai import OpenAI
-OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
-if 'BASE_URL' in os.environ:
-    BASE_URL = os.environ['BASE_URL']
-else:
-    BASE_URL = None
 import sys
 import time
 from tenacity import (
@@ -15,6 +10,18 @@ from tenacity import (
     wait_fixed
 )
 from utils import log_and_print_online
+
+# Import configuration management
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from chatdev.config import get_config
+
+# Initialize configuration
+config = get_config()
+
+# Get API credentials from configuration
+OPENAI_API_KEY = config.openai_api_key
+BASE_URL = config.base_url
+
 sys.path.append(os.path.join(os.getcwd(),"ecl"))
 
 class OpenAIEmbedding:
